@@ -29,10 +29,6 @@ dsh plugin --profile web remove dsh-prompt-inject
 - **外部 Markdown 文件**: 填了路径就改读这个文件, 每次组装重新读取, 在编辑器里改完下一轮生效;
 - **段落顺序**: 默认 100.
 
-表单骨架是官方 `SettingsForm`, 单行文本与数字用官方 `SettingsValueField`, 开关用官方 `Switch`, 多行文本块自绘 textarea, 颜色与圆角全走 `--dsw-*` token. 草稿只活在页面里, 离开即丢弃, 只有保存才写进 profile 的 patch 层.
-
-落点是官方给外部插件留的 `plugins.bundle.config` (keyed slot, 键等于包名), 卡片渲染在插件详情页的描述与"包含的组件"之间, 与其它插件的做法一致; 不占用 `settings.section` —— 那是官方功能插件给自己开的独立设置页.
-
 ## 预设
 
 预设放在 [presets/](presets), **一个文件一条**, front matter 给标题与来源 URL, 正文是逐字保留的原文 (包括原文里的弯引号与破折号). 想加一条就丢一个 `.md` 进去再重新构建, 构建脚本会把它们一起注入 client 产物.
@@ -85,7 +81,3 @@ dsh plugin --profile web remove dsh-prompt-inject
 just install
 just verify
 ```
-
-两半都用 `tsc` 构建, 没有打包器. Client 顶层只做 `__ModuleLoader__.load`, 运行时值全部经 factory 注入的 `require` 从平台模块表取, 所以 `lib/client.js` 里不允许出现 `import`/`export`; 类型侧导入会被 `tsc` 抹掉, 但模块标记 `export {};` 会留下来, 由 `scripts/build-client.mjs` 删掉 (dsh 用普通 `<script>` 加载 client bundle, 留着它会直接语法报错). 同一个脚本负责把 `presets/*.md` 注入 `lib/client.js` 的 `PRESETS` 常量.
-
-`just verify` 里的 `scripts/check.mjs` 是产物入口自检: 在假浏览器里跑一遍 client 产物, 断言注册 id, 平台模块表, 插件卡片落点与预设确实进了产物; 再用假 ctx 调一次 Host 的 `apply`, 断言默认文本为空, 段落名, 顺序, 关闭时的空段落与文件读不到时的回退.
