@@ -71,9 +71,10 @@ expect(JSON.stringify(plugin.inject) === JSON.stringify(['slots', 'locale', 'con
   `inject list is ${JSON.stringify(plugin.inject)}`)
 expect(typeof plugin.apply === 'function', 'factory result has no apply')
 
-// 槽位名与分区 id 是稳定标识: 配置面必须落在设置面板的独立分区上, 不是插件卡片里.
-expect(clientSource.includes("'settings.section'"), 'the client half must register into the settings.section slot')
-expect(clientSource.includes("id: 'prompt-inject'"), 'the settings section must carry the prompt-inject id')
+// 落点是稳定标识: 配置卡片挂在插件详情页上 (keyed slot, 键为包名), 不另开设置分区.
+expect(clientSource.includes("'plugins.bundle.config'"), 'the client half must register into the plugins.bundle.config slot')
+expect(clientSource.includes(`const PACKAGE_NAME = '${pkg.name}'`), `the client half must carry the package name ${pkg.name}`)
+expect(clientSource.includes('key: PACKAGE_NAME'), 'the config card must be keyed by the package name')
 
 // 预设由构建脚本从 presets/*.md 注入, 注入失败会得到一个"能加载但没有预设"的产物.
 const presetIds = [...clientSource.matchAll(/"id":"([a-z0-9-]+)"/g)].map(match => match[1])

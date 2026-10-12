@@ -1,6 +1,11 @@
 /**
  * Client 半区: 在本 bundle 的插件详情页上注册配置卡片.
  *
+ * 落点固定为 `plugins.bundle.config` (keyed slot, 键等于包名), 与官方及其它外部插件的
+ * 做法一致: 卡片渲染在 设置 -> 插件 -> 本插件 的页面上, 描述与"包含的组件"之间.
+ * 不占用 `settings.section`: 那是官方功能插件给自己开的独立设置页 (账号 / 预设 / 聊天),
+ * 外部插件的配置不该在那里另起一页.
+ *
  * 这一半不打包. 顶层只做 `__ModuleLoader__.load`, 运行时值全部经 factory 注入的
  * `require` 从平台模块表取, 所以构建只是 `tsc`, 产物里不允许出现 import/export.
  *
@@ -12,7 +17,7 @@
  * @module dsh-prompt-inject/client
  */
 /** 卡片文案的键. */
-type LocaleKey = 'nav' | 'intro' | 'enabled' | 'enabledHint' | 'text' | 'textHint' | 'textPlaceholder' | 'presetPlaceholder' | 'file' | 'fileHint' | 'order' | 'orderHint' | 'overridden' | 'reset' | 'unavailable' | 'readOnly' | 'saveFailed' | 'save' | 'saving';
+type LocaleKey = 'title' | 'intro' | 'enabled' | 'enabledHint' | 'text' | 'textHint' | 'textPlaceholder' | 'presetPlaceholder' | 'file' | 'fileHint' | 'order' | 'orderHint' | 'overridden' | 'reset' | 'unavailable' | 'readOnly' | 'saveFailed' | 'save' | 'saving';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         /** dsh-prompt-inject 配置页的文案. */

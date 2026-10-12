@@ -1,6 +1,11 @@
 /**
  * Client 半区: 在本 bundle 的插件详情页上注册配置卡片.
  *
+ * 落点固定为 `plugins.bundle.config` (keyed slot, 键等于包名), 与官方及其它外部插件的
+ * 做法一致: 卡片渲染在 设置 -> 插件 -> 本插件 的页面上, 描述与"包含的组件"之间.
+ * 不占用 `settings.section`: 那是官方功能插件给自己开的独立设置页 (账号 / 预设 / 聊天),
+ * 外部插件的配置不该在那里另起一页.
+ *
  * 这一半不打包. 顶层只做 `__ModuleLoader__.load`, 运行时值全部经 factory 注入的
  * `require` 从平台模块表取, 所以构建只是 `tsc`, 产物里不允许出现 import/export.
  *
@@ -35,7 +40,7 @@ const TEXT_ID = 'prompt-inject-text'
 
 /** 卡片文案的键. */
 type LocaleKey =
-  | 'nav' | 'intro'
+  | 'title' | 'intro'
   | 'enabled' | 'enabledHint'
   | 'text' | 'textHint' | 'textPlaceholder'
   | 'presetPlaceholder'
@@ -52,7 +57,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** 中文文案. */
 const zh: Record<LocaleKey, string> = {
-  nav: '提示词注入',
+  title: '提示词注入',
   intro: '这里维护的文字块会作为一个独立的系统提示词段落注入, 每次组装时重新读取.',
   enabled: '启用注入',
   enabledHint: '关掉后段落为空, 组装阶段直接丢掉; 文本本身保留, 随时可以再打开.',
@@ -75,7 +80,7 @@ const zh: Record<LocaleKey, string> = {
 
 /** 英文文案. */
 const en: Record<LocaleKey, string> = {
-  nav: 'Prompt blocks',
+  title: 'Prompt blocks',
   intro: 'The block you maintain here is injected as its own system prompt section and re-read at every assembly.',
   enabled: 'Enable the injection',
   enabledHint: 'Turning this off leaves the section empty and assembly drops it; the text stays for later.',
@@ -154,8 +159,8 @@ interface CardState {
 type CardFace = { hooks: { promptInject: SnapshotStore<CardState> } } & SettingsFormActions
 
 /** 设置页拿到的全部 props. */
-type SectionProps =
-  PropsRuntime<'settings.section'>
+type CardProps =
+  PropsRuntime<'plugins.bundle.config'>
   & PropsLocale<'dsh-prompt-inject'>
   & InjectFace<CardFace>
 
@@ -177,18 +182,18 @@ window.__ModuleLoader__.load({
     const { SettingsForm, SettingsFormModel, SettingsValueField, Switch, settingsNumberField, settingsTextField } = primitives
 
     /**
-     * 渲染设置面板里的独立分区页; 分区的导航标签由注册选项给出.
+     * 渲染插件详情页上的配置卡片.
      * @param props - 字典, 表单快照与动作.
-     * @returns 该分区的配置表单.
+     * @returns 该插件的配置表单.
      */
-    function PromptInjectSection(props: SectionProps) {
+    function PromptInjectCard(props: CardProps) {
       const { t } = props
       const state = props.usePromptInject(snapshot => snapshot)
       const locked = !state.writable
       const field = {
         overriddenLabel: t('overridden'), resetLabel: t('reset'), invalidLabel: t('saveFailed'), disabled: locked,
       }
-      return h('section', { 'aria-label': t('nav') },
+      return h('section', { 'aria-label': t('title') },
         h('p', { style: STYLE.intro }, t('intro')),
         h(
         SettingsForm,
@@ -295,18 +300,16 @@ window.__ModuleLoader__.load({
           order: form.field('order'),
         }))
         ctx.effect(() => () => { form.dispose() }, 'dsh-prompt-inject: settings form')
-        // Host 没有组合这一条目时 (profile 里没启用本 bundle) 分区页不出现.
+        // Host 没有组合这一条目时 (profile 里没启用本 bundle) 卡片不出现.
         ctx.effect(() => ctx.configForms.whileServed([ENTRY_ID], () => ctx.slots.inject(
-          'settings.section',
+          'plugins.bundle.config',
           () => ctx.slots.register({
-            name: 'settings.section',
-            id: 'prompt-inject',
-            order: 50,
-            label: () => ctx.locale.bind(LOCALE_NS)('nav'),
+            name: 'plugins.bundle.config',
+            key: PACKAGE_NAME,
             locale: LOCALE_NS,
             inject: () => ({ hooks: { promptInject: store }, ...form.actions() }),
-          }, PromptInjectSection),
-        )), 'dsh-prompt-inject: settings section')
+          }, PromptInjectCard),
+        )), 'dsh-prompt-inject: plugins page card')
       },
     }
   },

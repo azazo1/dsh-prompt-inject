@@ -2,7 +2,7 @@
 
 DeepSeek Harness 插件: 把一份你自己维护的文字块注入系统提示词, 每次组装时重新读取, 改完下一轮生效.
 
-**默认不注入任何内容**: 文字块留空时段落为空, 组装阶段直接丢掉. 想用时在设置页从预设里挑一段插入, 也可以直接自己写.
+**默认不注入任何内容**: 文字块留空时段落为空, 组装阶段直接丢掉. 想用时在插件页的配置卡片里从预设里挑一段插入, 也可以直接自己写.
 
 插件只有 `src/index.ts` (Host) 与 `src/client.ts` (设置页) 两个源文件, 不注册服务, 不注册工具, 不做网络访问.
 
@@ -20,9 +20,9 @@ dsh plugin --profile web add "link:$(pwd)"
 dsh plugin --profile web remove dsh-prompt-inject
 ```
 
-## 设置页面
+## 配置页面
 
-设置 -> 侧栏「提示词注入」, 里面有四个控件:
+设置 -> 插件 -> `dsh-prompt-inject` 卡片, 页面上的配置区里有四个控件:
 
 - **启用注入**: 关掉后段落为空, 组装阶段直接丢掉, 文本本身保留, 随时可以再打开;
 - **注入的文字块**: 多行编辑器, 右侧的下拉是预设, 选中即把该段原文填进草稿 (仍要按保存才写回);
@@ -30,6 +30,8 @@ dsh plugin --profile web remove dsh-prompt-inject
 - **段落顺序**: 默认 100.
 
 表单骨架是官方 `SettingsForm`, 单行文本与数字用官方 `SettingsValueField`, 开关用官方 `Switch`, 多行文本块自绘 textarea, 颜色与圆角全走 `--dsw-*` token. 草稿只活在页面里, 离开即丢弃, 只有保存才写进 profile 的 patch 层.
+
+落点是官方给外部插件留的 `plugins.bundle.config` (keyed slot, 键等于包名), 卡片渲染在插件详情页的描述与"包含的组件"之间, 与其它插件的做法一致; 不占用 `settings.section` —— 那是官方功能插件给自己开的独立设置页.
 
 ## 预设
 
@@ -51,7 +53,7 @@ dsh plugin --profile web remove dsh-prompt-inject
 
 ## 配置
 
-配置表单按 profile 条目 id (`dsh-prompt-inject`) 寻址, 在设置页里改, 也可以在自己 profile 的 `cordis.patch.yml` 里按 id 覆盖:
+配置表单按 profile 条目 id (`dsh-prompt-inject`) 寻址, 在插件页的配置卡片里改, 也可以在自己 profile 的 `cordis.patch.yml` 里按 id 覆盖:
 
 ```yaml
 - id: dsh-prompt-inject
@@ -64,7 +66,7 @@ dsh plugin --profile web remove dsh-prompt-inject
 |---|---|---|
 | `enabled` | `true` | 关掉后注入空段落, 组装阶段直接丢掉 |
 | `order` | `100` | 段落顺序; 100 紧跟人设前缀 (0), 在第一方工具引导 (500 起) 之前 |
-| `text` | `''` | 注入的文本, 默认空; 在设置页插入预设或自己写 |
+| `text` | `''` | 注入的文本, 默认空; 在配置卡片里插入预设或自己写 |
 | `file` | `''` | 非空时改读这个 Markdown 文件 (支持 `~`), 优先于 `text` |
 
 `enabled`, `text`, `file` 是 volatile 字段, 保存后立刻生效; `order` 改完会重挂载插件, 段落按新顺序重新注册.
@@ -86,4 +88,4 @@ just verify
 
 两半都用 `tsc` 构建, 没有打包器. Client 顶层只做 `__ModuleLoader__.load`, 运行时值全部经 factory 注入的 `require` 从平台模块表取, 所以 `lib/client.js` 里不允许出现 `import`/`export`; 类型侧导入会被 `tsc` 抹掉, 但模块标记 `export {};` 会留下来, 由 `scripts/build-client.mjs` 删掉 (dsh 用普通 `<script>` 加载 client bundle, 留着它会直接语法报错). 同一个脚本负责把 `presets/*.md` 注入 `lib/client.js` 的 `PRESETS` 常量.
 
-`just verify` 里的 `scripts/check.mjs` 是产物入口自检: 在假浏览器里跑一遍 client 产物, 断言注册 id, 平台模块表, 设置分区落点与预设确实进了产物; 再用假 ctx 调一次 Host 的 `apply`, 断言默认文本为空, 段落名, 顺序, 关闭时的空段落与文件读不到时的回退.
+`just verify` 里的 `scripts/check.mjs` 是产物入口自检: 在假浏览器里跑一遍 client 产物, 断言注册 id, 平台模块表, 插件卡片落点与预设确实进了产物; 再用假 ctx 调一次 Host 的 `apply`, 断言默认文本为空, 段落名, 顺序, 关闭时的空段落与文件读不到时的回退.
