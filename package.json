@@ -1,0 +1,94 @@
+{
+  "name": "dsh-prompt-inject",
+  "version": "0.1.0",
+  "description": "把用户维护的文字块注入 DSH 系统提示词, 默认给出工具调用之间的进度汇报规范",
+  "license": "MIT",
+  "type": "module",
+  "main": "./lib/index.js",
+  "types": "./lib/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./lib/index.d.ts",
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh-plugin.naming.json",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "build:host": "tsc -p tsconfig.json",
+    "build:client": "tsc -p tsconfig.client.json && node -e \"const fs=require('node:fs');const p='lib/client.js';const out=fs.readFileSync(p,'utf8').split('\\n').filter(line=>line.trim()!=='export {};').join('\\n');fs.writeFileSync(p,out)\"",
+    "build": "pnpm run build:host && pnpm run build:client",
+    "check": "pnpm run typecheck && pnpm run build && node scripts/check.mjs"
+  },
+  "engines": {
+    "node": "^22.19 || >=24"
+  },
+  "packageManager": "pnpm@11.7.0",
+  "dependencies": {
+    "@deepseek-ai/schemastery": "~3.18.4"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-system-prompt": ">=0.2.0-rc.1 <0.3.0",
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@deepseek-ai/cordis": "^4.0.4",
+    "@deepseek-ai/dsh-client-locale": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-store": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-plugin-manager": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-primitives": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.2.0-rc.1 <0.3.0",
+    "@deepseek-ai/dsh-system-prompt": ">=0.2.0-rc.1 <0.3.0",
+    "@types/node": "^22.19.0",
+    "@types/react": "^18.3.1",
+    "react": "^18.3.1",
+    "typescript": "^5.9.0"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "system-prompt",
+    "prompt"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/azazo1/dsh-prompt-inject.git"
+  },
+  "homepage": "https://github.com/azazo1/dsh-prompt-inject#readme",
+  "bugs": {
+    "url": "https://github.com/azazo1/dsh-prompt-inject/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-locale",
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-primitives",
+        "@deepseek-ai/dsh-client-ui-renderer",
+        "@deepseek-ai/dsh-client-ui-settings"
+      ]
+    }
+  }
+}

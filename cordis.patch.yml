@@ -1,0 +1,9 @@
+# dsh-prompt-inject 的 profile 装配层: 只插入插件自身的 Host 行.
+# 行 id 就是这个插件配置表单的命名空间, 需要覆盖时按 id 追加一层 patch, 例如:
+#   - id: dsh-prompt-inject
+#     config:
+#       order: 400
+#       file: ~/notes/agent-style.md
+- insert:
+    - id: dsh-prompt-inject
+      name: dsh-prompt-inject
