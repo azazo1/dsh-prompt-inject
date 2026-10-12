@@ -6,8 +6,9 @@
  * 不占用 `settings.section`: 那是官方功能插件给自己开的独立设置页 (账号 / 预设 / 聊天),
  * 外部插件的配置不该在那里另起一页.
  *
- * 这一半不打包. 顶层只做 `__ModuleLoader__.load`, 运行时值全部经 factory 注入的
- * `require` 从平台模块表取, 所以构建只是 `tsc`, 产物里不允许出现 import/export.
+ * 这一半不打包. 顶层只留一个立即执行调用, 运行时值全部经 factory 注入的 `require`
+ * 从平台模块表取, 所以构建只是 `tsc`, 产物里不允许出现 import/export. 整个 bundle 必须
+ * 自隔离 (见文件下半部分的 IIFE 注释): 拼接进同一个脚本的其它插件不能被我们的顶层声明撞到.
  *
  * 骨架是官方 `SettingsForm`: 单行文本与数字用官方 `SettingsValueField`, 布尔用官方
  * `Switch`, 多行文本块自绘 textarea (原语里没有多行控件), 颜色与圆角全走 `--dsw-*`
@@ -26,7 +27,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 declare global {
     interface Window {
-        /** DSH Web 的懒加载模块表: 顶层注册本插件的 client 半区. */
+        /** DSH Web 的懒加载模块表: 注册本插件的 client 半区. */
         __ModuleLoader__: {
             load(entry: {
                 id: string;

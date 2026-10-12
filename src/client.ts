@@ -6,8 +6,9 @@
  * 不占用 `settings.section`: 那是官方功能插件给自己开的独立设置页 (账号 / 预设 / 聊天),
  * 外部插件的配置不该在那里另起一页.
  *
- * 这一半不打包. 顶层只做 `__ModuleLoader__.load`, 运行时值全部经 factory 注入的
- * `require` 从平台模块表取, 所以构建只是 `tsc`, 产物里不允许出现 import/export.
+ * 这一半不打包. 顶层只留一个立即执行调用, 运行时值全部经 factory 注入的 `require`
+ * 从平台模块表取, 所以构建只是 `tsc`, 产物里不允许出现 import/export. 整个 bundle 必须
+ * 自隔离 (见文件下半部分的 IIFE 注释): 拼接进同一个脚本的其它插件不能被我们的顶层声明撞到.
  *
  * 骨架是官方 `SettingsForm`: 单行文本与数字用官方 `SettingsValueField`, 布尔用官方
  * `Switch`, 多行文本块自绘 textarea (原语里没有多行控件), 颜色与圆角全走 `--dsw-*`
@@ -29,15 +30,6 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 
-/** 包名, 同时是 loader registration id. */
-const PACKAGE_NAME = 'dsh-prompt-inject'
-/** profile 条目 id, 配置表单按它寻址 (见 cordis.patch.yml). */
-const ENTRY_ID = 'dsh-prompt-inject'
-/** 文案命名空间, 与条目 id 同名便于对照. */
-const LOCALE_NS = 'dsh-prompt-inject'
-/** 多行文本控件的 id, 供 label 关联. */
-const TEXT_ID = 'prompt-inject-text'
-
 /** 卡片文案的键. */
 type LocaleKey =
   | 'title' | 'intro'
@@ -54,6 +46,36 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
     'dsh-prompt-inject': LocaleKey
   }
 }
+
+declare global {
+  interface Window {
+    /** DSH Web 的懒加载模块表: 注册本插件的 client 半区. */
+    __ModuleLoader__: {
+      load(entry: { id: string; factory: (require: (specifier: string) => unknown) => unknown }): void
+    }
+  }
+}
+
+/**
+ * 运行时值全部关在这个 IIFE 里.
+ *
+ * combo 把同一批次里多个插件的 bundle 源码首尾拼接进同一个 classic script, 而脚本顶层的
+ * `const` / `let` / `function` 会落进共享的全局词法环境: 两个插件各写一个 `zh` 就是
+ * `SyntaxError: Identifier 'zh' has already been declared`, 整批插件一个都注册不上.
+ * 所以脚本顶层只留这个立即执行调用, 声明一律留在函数体里.
+ *
+ * 上面两个 `declare` 块不产生代码, 且按语言规则只能写在模块顶层, 故留在 IIFE 外面.
+ */
+;(() => {
+
+/** 包名, 同时是 loader registration id. */
+const PACKAGE_NAME = 'dsh-prompt-inject'
+/** profile 条目 id, 配置表单按它寻址 (见 cordis.patch.yml). */
+const ENTRY_ID = 'dsh-prompt-inject'
+/** 文案命名空间, 与条目 id 同名便于对照. */
+const LOCALE_NS = 'dsh-prompt-inject'
+/** 多行文本控件的 id, 供 label 关联. */
+const TEXT_ID = 'prompt-inject-text'
 
 /** 中文文案. */
 const zh: Record<LocaleKey, string> = {
@@ -163,15 +185,6 @@ type CardProps =
   PropsRuntime<'plugins.bundle.config'>
   & PropsLocale<'dsh-prompt-inject'>
   & InjectFace<CardFace>
-
-declare global {
-  interface Window {
-    /** DSH Web 的懒加载模块表: 顶层注册本插件的 client 半区. */
-    __ModuleLoader__: {
-      load(entry: { id: string; factory: (require: (specifier: string) => unknown) => unknown }): void
-    }
-  }
-}
 
 window.__ModuleLoader__.load({
   id: PACKAGE_NAME,
@@ -314,3 +327,4 @@ window.__ModuleLoader__.load({
     }
   },
 })
+})()

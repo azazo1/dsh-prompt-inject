@@ -2,7 +2,8 @@
  * 产物入口自检.
  *
  * 1. Client: 把 lib/client.js 放进一个假浏览器里跑一遍, 断言它顶层完成了
- *    `__ModuleLoader__.load` 注册, 注册 id 等于包名, 且 factory 只向平台模块表要东西.
+ *    `__ModuleLoader__.load` 注册, 注册 id 等于包名, 且 factory 只向平台模块表要东西;
+ *    再自拼接一份, 断言顶层没有留下会与同批次插件撞名的声明.
  * 2. Host: 用假 ctx 调一次 apply, 断言段落名, 顺序, 文本回退与关闭时的空段落.
  *
  * 不 require 任何宿主真实包: 平台模块表的传递依赖在本仓 node_modules 里不一定解析得到,
@@ -70,6 +71,15 @@ const plugin = entry.factory((specifier) => {
 expect(JSON.stringify(plugin.inject) === JSON.stringify(['slots', 'locale', 'configForms']),
   `inject list is ${JSON.stringify(plugin.inject)}`)
 expect(typeof plugin.apply === 'function', 'factory result has no apply')
+
+// 拼接自检: combo 把同一批次多个插件的 bundle 源码首尾拼接进同一个 classic script, 顶层
+// 的 const/let/function 会进共享的全局词法环境互相撞名 (整批 SyntaxError, 一个都注册不上).
+// 产物把运行时值都关在 IIFE 里, 所以自己拼自己必须仍然是一份合法脚本.
+try {
+  new vm.Script(`${clientSource}\n${clientSource}`, { filename: 'lib/client.js x2' })
+} catch (error) {
+  fail(`the client bundle leaks top-level declarations, concatenating it with a sibling plugin would not parse: ${error.message}`)
+}
 
 // 落点是稳定标识: 配置卡片挂在插件详情页上 (keyed slot, 键为包名), 不另开设置分区.
 expect(clientSource.includes("'plugins.bundle.config'"), 'the client half must register into the plugins.bundle.config slot')
