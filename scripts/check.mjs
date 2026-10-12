@@ -11,7 +11,7 @@
 
 import { readFileSync } from 'node:fs'
 import vm from 'node:vm'
-import { apply, Config, DEFAULT_TEXT, name, SECTION_NAME } from '../lib/index.js'
+import { apply, Config, name, SECTION_NAME } from '../lib/index.js'
 
 /** 平台模块表里可用的模块 (与 dsh 的 staticModules 对齐). */
 const PLATFORM_MODULES = new Set([
@@ -53,8 +53,9 @@ function mountHost(config) {
 const volatileOf = value => ({ get: () => value })
 
 // --- Client 半区: 顶层注册 ---
+const clientSource = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 const registrations = []
-vm.runInNewContext(readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'),
+vm.runInNewContext(clientSource,
   { window: { __ModuleLoader__: { load: entry => { registrations.push(entry) } } } },
   { filename: 'lib/client.js' })
 
@@ -70,10 +71,23 @@ expect(JSON.stringify(plugin.inject) === JSON.stringify(['slots', 'locale', 'con
   `inject list is ${JSON.stringify(plugin.inject)}`)
 expect(typeof plugin.apply === 'function', 'factory result has no apply')
 
+// 槽位名与分区 id 是稳定标识: 配置面必须落在设置面板的独立分区上, 不是插件卡片里.
+expect(clientSource.includes("'settings.section'"), 'the client half must register into the settings.section slot')
+expect(clientSource.includes("id: 'prompt-inject'"), 'the settings section must carry the prompt-inject id')
+
+// 预设由构建脚本从 presets/*.md 注入, 注入失败会得到一个"能加载但没有预设"的产物.
+const presetIds = [...clientSource.matchAll(/"id":"([a-z0-9-]+)"/g)].map(match => match[1])
+expect(presetIds.includes('codex-preamble-messages'), 'preset codex-preamble-messages is missing from the artifact')
+expect(presetIds.includes('claude-code-communication-style'), 'preset claude-code-communication-style is missing from the artifact')
+expect(presetIds.length >= 10, `only ${String(presetIds.length)} presets reached the artifact`)
+
 // --- Host 半区: 段落注册 ---
 expect(name === pkg.name, `plugin module name ${name} does not match package name ${pkg.name}`)
 const defaults = Config({})
 expect(defaults.order === 100, `default order is ${String(defaults.order)}, expected 100`)
+// 默认不注入: 文字块默认空, 空的段落会在组装阶段被丢掉.
+expect(defaults.text.get() === '', `default text is ${JSON.stringify(defaults.text.get())}, expected empty`)
+expect(defaults.file.get() === '', `default file is ${JSON.stringify(defaults.file.get())}, expected empty`)
 
 const inline = mountHost({
   enabled: volatileOf(true), order: 100, text: volatileOf('  自定义块  '), file: volatileOf(''),
@@ -85,7 +99,7 @@ expect(inline.sections[0].interpolate === false, 'the section must keep its text
 expect(inline.sections[0].text() === '自定义块', `inline text read back as ${inline.sections[0].text()}`)
 
 const muted = mountHost({
-  enabled: volatileOf(false), order: 100, text: volatileOf(DEFAULT_TEXT), file: volatileOf(''),
+  enabled: volatileOf(false), order: 100, text: volatileOf('不该出现'), file: volatileOf(''),
 })
 expect(muted.sections[0].text() === '', 'a disabled section must render empty so assembly drops it')
 

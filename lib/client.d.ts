@@ -12,7 +12,7 @@
  * @module dsh-prompt-inject/client
  */
 /** 卡片文案的键. */
-type LocaleKey = 'summary' | 'enabled' | 'enabledHint' | 'text' | 'textHint' | 'file' | 'fileHint' | 'order' | 'orderHint' | 'overridden' | 'reset' | 'unavailable' | 'readOnly' | 'saveFailed' | 'save' | 'saving';
+type LocaleKey = 'nav' | 'intro' | 'enabled' | 'enabledHint' | 'text' | 'textHint' | 'textPlaceholder' | 'presetPlaceholder' | 'file' | 'fileHint' | 'order' | 'orderHint' | 'overridden' | 'reset' | 'unavailable' | 'readOnly' | 'saveFailed' | 'save' | 'saving';
 declare module '@deepseek-ai/dsh-client-ui-slots' {
     interface LocaleNamespaceMap {
         /** dsh-prompt-inject 配置页的文案. */

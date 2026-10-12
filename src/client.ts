@@ -24,7 +24,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-plugin-manager/client'
 import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 
-/** 包名, 同时是 loader registration id 与配置槽位的键. */
+/** 包名, 同时是 loader registration id. */
 const PACKAGE_NAME = 'dsh-prompt-inject'
 /** profile 条目 id, 配置表单按它寻址 (见 cordis.patch.yml). */
 const ENTRY_ID = 'dsh-prompt-inject'
@@ -35,9 +35,10 @@ const TEXT_ID = 'prompt-inject-text'
 
 /** 卡片文案的键. */
 type LocaleKey =
-  | 'summary'
+  | 'nav' | 'intro'
   | 'enabled' | 'enabledHint'
-  | 'text' | 'textHint'
+  | 'text' | 'textHint' | 'textPlaceholder'
+  | 'presetPlaceholder'
   | 'file' | 'fileHint'
   | 'order' | 'orderHint'
   | 'overridden' | 'reset' | 'unavailable' | 'readOnly' | 'saveFailed' | 'save' | 'saving'
@@ -51,11 +52,14 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 
 /** 中文文案. */
 const zh: Record<LocaleKey, string> = {
-  summary: '往系统提示词里注入一段你自己维护的文字块.',
+  nav: '提示词注入',
+  intro: '这里维护的文字块会作为一个独立的系统提示词段落注入, 每次组装时重新读取.',
   enabled: '启用注入',
   enabledHint: '关掉后段落为空, 组装阶段直接丢掉; 文本本身保留, 随时可以再打开.',
   text: '注入的文字块',
-  textHint: '清空后回落为内置的响应性规范.',
+  textHint: '默认留空: 空段落会在组装阶段被丢掉, 也就是什么都不注入.',
+  textPlaceholder: '用右侧预设插入, 或直接写在这里.',
+  presetPlaceholder: '插入预设...',
   file: '外部 Markdown 文件',
   fileHint: '填了路径就改读这个文件, 每次组装重新读取, 在编辑器里改完下一轮生效.',
   order: '段落顺序',
@@ -71,11 +75,14 @@ const zh: Record<LocaleKey, string> = {
 
 /** 英文文案. */
 const en: Record<LocaleKey, string> = {
-  summary: 'Inject a text block you maintain yourself into the system prompt.',
+  nav: 'Prompt blocks',
+  intro: 'The block you maintain here is injected as its own system prompt section and re-read at every assembly.',
   enabled: 'Enable the injection',
   enabledHint: 'Turning this off leaves the section empty and assembly drops it; the text stays for later.',
   text: 'Injected block',
-  textHint: 'Clearing this falls back to the built-in responsiveness spec.',
+  textHint: 'Left empty by default: an empty section is dropped at assembly, so nothing is injected.',
+  textPlaceholder: 'Insert a preset on the right, or write your own block here.',
+  presetPlaceholder: 'Insert a preset...',
   file: 'External Markdown file',
   fileHint: 'When set, this file is read at every assembly, so edits apply on the next round.',
   order: 'Section order',
@@ -97,10 +104,29 @@ const STYLE = {
   label: { flex: '1', minWidth: 0, fontSize: '13px', fontWeight: 500, lineHeight: 1.5, color: 'var(--dsw-alias-label-primary)' },
   reset: { padding: 0, border: 'none', background: 'none', color: 'var(--dsw-alias-label-secondary)', font: 'inherit', fontSize: '12px', lineHeight: 1.5, cursor: 'pointer' },
   hint: { margin: 0, fontSize: '12px', lineHeight: 1.5, color: 'var(--dsw-alias-label-tertiary)' },
+  intro: { margin: '0 0 4px', fontSize: '12px', lineHeight: 1.6, color: 'var(--dsw-alias-label-tertiary)' },
+  select: { maxWidth: '240px', height: '28px', padding: '0 6px', borderRadius: 'var(--dsw-radius-md)', border: '0.5px solid var(--dsw-alias-border-l4)', background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', fontSize: '12px' },
   toggle: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px', padding: '12px 0' },
   toggleText: { flex: '1', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '4px' },
   textarea: { width: '100%', boxSizing: 'border-box', minHeight: '96px', resize: 'vertical', padding: '8px 12px', borderRadius: 'var(--dsw-radius-md)', border: '0.5px solid var(--dsw-alias-border-l4)', background: 'var(--dsw-alias-bg-layer-3)', color: 'var(--dsw-alias-label-primary)', font: 'inherit', fontSize: '13px', lineHeight: 1.6 },
 } as const
+
+/** 一条可以一键插入文字块的预设, 来自 `presets/*.md`. */
+interface Preset {
+  /** 文件名去掉 `.md`, 用作 <option> 的 value. */
+  id: string
+  /** 预设标题, 中英同形 (都是产品名与段落名), 直接显示. */
+  title: string
+  /** 预设正文, 逐字保留原文, 插入到文字块里. */
+  text: string
+}
+
+/**
+ * 预设清单. 源码里固定为空数组, 构建脚本 `scripts/build-client.mjs` 读
+ * `presets/*.md` 后把这行整体替换成真实字面量: client 半区没有打包器, 顶层不允许
+ * import, 文件内容只能这样进产物.
+ */
+const PRESETS: readonly Preset[] = []
 
 /** Host 段落注册时读的那份配置. */
 interface PromptInjectSettings {
@@ -127,9 +153,9 @@ interface CardState {
 /** 注册侧注入给卡片的能力. */
 type CardFace = { hooks: { promptInject: SnapshotStore<CardState> } } & SettingsFormActions
 
-/** 卡片拿到的全部 props. */
-type CardProps =
-  PropsRuntime<'plugins.bundle.config'>
+/** 设置页拿到的全部 props. */
+type SectionProps =
+  PropsRuntime<'settings.section'>
   & PropsLocale<'dsh-prompt-inject'>
   & InjectFace<CardFace>
 
@@ -151,19 +177,20 @@ window.__ModuleLoader__.load({
     const { SettingsForm, SettingsFormModel, SettingsValueField, Switch, settingsNumberField, settingsTextField } = primitives
 
     /**
-     * 渲染本 bundle 的配置页; bundle 配置槽只会要 `page`, 简介分支是为了稳妥.
-     * @param props - 页面视图, 字典, 表单快照与动作.
-     * @returns 简介文本或配置表单.
+     * 渲染设置面板里的独立分区页; 分区的导航标签由注册选项给出.
+     * @param props - 字典, 表单快照与动作.
+     * @returns 该分区的配置表单.
      */
-    function PromptInjectCard(props: CardProps) {
+    function PromptInjectSection(props: SectionProps) {
       const { t } = props
       const state = props.usePromptInject(snapshot => snapshot)
-      if (props.view === 'summary') return h('span', null, t('summary'))
       const locked = !state.writable
       const field = {
         overriddenLabel: t('overridden'), resetLabel: t('reset'), invalidLabel: t('saveFailed'), disabled: locked,
       }
-      return h(
+      return h('section', { 'aria-label': t('nav') },
+        h('p', { style: STYLE.intro }, t('intro')),
+        h(
         SettingsForm,
         {
           labels: {
@@ -192,7 +219,21 @@ window.__ModuleLoader__.load({
                 h('label', { htmlFor: TEXT_ID, style: STYLE.label }, t('text')),
                 state.text.overridden
                   ? h('button', { type: 'button', style: STYLE.reset, disabled: locked, onClick: () => { props.resetField('text') } }, t('reset'))
-                  : null),
+                  : null,
+                // 预设: 选中即把该段原文填进草稿, 仍要按保存才写回配置; value 固定为空,
+                // 所以选完会弹回占位项, 同一条可以反复插入.
+                h('select', {
+                  style: STYLE.select,
+                  value: '',
+                  disabled: locked || PRESETS.length === 0,
+                  'aria-label': t('presetPlaceholder'),
+                  onChange: (event: ChangeEvent<HTMLSelectElement>) => {
+                    const preset = PRESETS.find(item => item.id === event.target.value)
+                    if (preset !== undefined) props.edit('text', preset.text)
+                  },
+                },
+                h('option', { value: '' }, t('presetPlaceholder')),
+                PRESETS.map(preset => h('option', { key: preset.id, value: preset.id }, preset.title)))),
               h('textarea', {
                 id: TEXT_ID,
                 style: STYLE.textarea,
@@ -229,7 +270,7 @@ window.__ModuleLoader__.load({
               })),
           ],
         },
-      )
+      ))
     }
 
     return {
@@ -254,16 +295,18 @@ window.__ModuleLoader__.load({
           order: form.field('order'),
         }))
         ctx.effect(() => () => { form.dispose() }, 'dsh-prompt-inject: settings form')
-        // Host 没有组合这一条目时 (profile 里没启用本 bundle) 卡片不出现.
+        // Host 没有组合这一条目时 (profile 里没启用本 bundle) 分区页不出现.
         ctx.effect(() => ctx.configForms.whileServed([ENTRY_ID], () => ctx.slots.inject(
-          'plugins.bundle.config',
+          'settings.section',
           () => ctx.slots.register({
-            name: 'plugins.bundle.config',
-            key: PACKAGE_NAME,
+            name: 'settings.section',
+            id: 'prompt-inject',
+            order: 50,
+            label: () => ctx.locale.bind(LOCALE_NS)('nav'),
             locale: LOCALE_NS,
             inject: () => ({ hooks: { promptInject: store }, ...form.actions() }),
-          }, PromptInjectCard),
-        )), 'dsh-prompt-inject: plugins page card')
+          }, PromptInjectSection),
+        )), 'dsh-prompt-inject: settings section')
       },
     }
   },

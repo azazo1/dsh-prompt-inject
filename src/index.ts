@@ -20,19 +20,6 @@ import z from '@deepseek-ai/schemastery'
 // 类型侧导入: 它把 `ctx.systemPrompt` 并进 Context, 运行时不需要这个包.
 import type {} from '@deepseek-ai/dsh-system-prompt'
 
-/** 默认块: 工具调用之间的进度汇报, 改写自 Codex 的 Preamble messages 规范. */
-export const DEFAULT_TEXT = `# 响应性
-
-你会有成段的时间在调用工具, 让用户在你工作的过程中持续获得更新是至关重要的.
-
-- 第一次工具调用之前, 用一两句话给出目标, 约束与下一步.
-- 之后每完成一个有意义的子步骤, 在下一次工具调用前补一句进度: 已经弄清了什么, 接下来做什么.
-- 每句更新控制在一两句话以内, 8 到 12 个词就够; 只有初始计划, 计划变更和最终总结可以更长.
-- 没有新进展时不要为了凑数而发言, 单独一次琐碎读取也不必加前言.
-- 探索中发现的重要信息, 会影响用户理解现状的那种, 明确讲出来.
-- 改变了先前的计划, 就在下一句更新或最终总结里说明原因.
-- 不要在更新里复述工具输出或大段代码, 用一句结论带过.`
-
 export const name = 'dsh-prompt-inject'
 
 /** 段落名带命名空间, 避免与第一方段落或其它插件相撞. */
@@ -55,7 +42,7 @@ export interface Config {
    * 想让它更靠后可以给 10250, 也就是人设后缀 (10200) 之后.
    */
   order: number
-  /** 注入的文本; `file` 非空时它只在文件读不到时作为退路. */
+  /** 注入的文本, 默认空; `file` 非空时它只在文件读不到时作为退路. */
   text: Volatile<string>
   /** 可选的外部 Markdown 文件路径, 支持 `~` 前缀; 非空时优先于 `text`. */
   file: Volatile<string>
@@ -64,7 +51,7 @@ export interface Config {
 export const Config: z<ConfigInput, Config> = z.object({
   enabled: z.boolean().default(true).volatile(),
   order: z.number().default(100),
-  text: z.string().default(DEFAULT_TEXT).volatile(),
+  text: z.string().default('').volatile(),
   file: z.string().default('').volatile(),
 })
 
